@@ -5,18 +5,34 @@ library(emmeans)
 library(ggpubr)
 library(tidyr)
 
-data <- read.table("genimix_ii_aso_test_n1-3.csv",header=FALSE,sep=",",na.strings="NA",dec=".")
-                                        #data <- read.table("genimix_ii_aso_run0_1_10_models.csv",header=FALSE,sep=",",na.strings="NA",dec=".")
-colnames(data) <- c('id','genimix','ii','treat','time','group')
-data$treat <- as.factor(data$treat)
-data$group <- as.factor(data$group)
+#data <- read.table("genimix_ii_test.csv",header=FALSE,sep=",",na.strings="NA",dec=".")
+#colnames(data) <- c('id','genimix','ii','treat','time','std')
+#genimix_std <- 1
+#ii_std <- 1
+data <- read.table("genimix_out.csv",header=FALSE,sep=",",na.strings="NA",dec=".")
+colnames(data) <- c('id','genimix','genimix_std','ii','ii_std','treat','time')
 
-                                        #data <- data[data$genimix<.5,]
-data <- data[data$treat!=-1,]
+data$treat <- as.factor(data$treat)
+                                        #data$group <- as.factor(data$group)
+
+# CUTS
+data <- data[data$treat != 'nil',]
+#data <- data[data$genimix > -10000,]
+#data <- data[data$treat != 'scr_aso',]
+#print (min(data$time))
+#print (max(data$time))
+#quit()
+#data <- data[data$time < 120,]
+#data <- data[data$treat!=-1,]
 
 #print (summary(lm(genimix ~ time + treat + group, data=data)))
 ggplot(data, aes(x=time, y=genimix, colour=treat, shape=treat)) +
-  geom_point() +
+    geom_point() +
+    geom_errorbar(aes(ymin=genimix-genimix_std, ymax=genimix+genimix_std), width=.2,
+                  position=position_dodge(0.05)) +
+      labs(
+       x="time", y="genimix") +
+
   geom_smooth(method='lm')
 
 model <- lme(genimix ~ time * treat, random = ~1 | id, na.action="na.omit", data=data)
@@ -27,28 +43,28 @@ contrasts$p.signif <- symnum(contrasts$p.value, corr=FALSE, na=FALSE, legend=FAL
                              cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1), 
                              symbols = c("***", "**", "*", ".", "ns"))
 contrasts$grouped <- contrasts$contrast
-contrasts <- contrasts %>% separate(c("grouped"), c("group1", "group2"), sep = " - ")
+contrasts <- contrasts %>% separate(c("grouped"), c("group1", "group2", "group3"), sep = " - ")
 contrasts$p.value <- formatC(contrasts$p.value, format="e", digits=2)
 slopes <- data.frame(pwc$emtrends) 
 ### bar plot
-slopes$treat <- factor(slopes$treat, levels = c("0", "1"))
+                                        #slopes$treat <- factor(slopes$treat, levels = c("0", "1"))
+slopes$treat <- factor(slopes$treat, levels = c("pbs", "htt_aso", "scr_aso"))
 
 diictrl.bar <- 
 ggplot(slopes, aes(x=treat, y=time.trend)) +
   geom_bar(aes(fill=treat), stat="identity", color="black", position=position_dodge()) +
-  # geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=.2, position=position_dodge(.9)) +
   geom_errorbar(aes(ymin=time.trend-SE, ymax=time.trend+SE), width=.2, position=position_dodge(.9)) +
-  stat_pvalue_manual(contrasts, label = "{p.signif} \n p = {p.value}", y.position = 0.004, step.increase = 0.1, vjust=-0.1) +
-  scale_y_continuous(limits = c(NA, 0.005)) +
-    scale_x_discrete(labels = c("PBS", expression(paste(italic("HTT"), " ASO")))) +
-    scale_fill_discrete(labels=c("PBS", expression(paste(italic("HTT"), " ASO")))) +
+  stat_pvalue_manual(contrasts, label = "{p.signif} \n p = {p.value}", y.position = 0.005, step.increase = 0.1, vjust=-0.1) +
+#  scale_y_continuous(limits = c(NA, 0.006)) +
+    scale_x_discrete(labels = c("PBS", expression(paste(italic("HTT"), " ASO")), expression(paste(italic("SCR"), " ASO")))) +
+    scale_fill_discrete(labels=c("PBS", expression(paste(italic("HTT"), " ASO")), expression(paste(italic("SCR"), " ASO")))) +
 #    scale_x_discrete(labels = c("FAN1-/-", "WT") )+
 #    scale_fill_discrete(labels=c("FAN1-/-", "WT")) +
 
   # scale_colour_discrete(labels=c("PBS", "HTT ASO")) +
   geom_hline(yintercept = 0) +
   theme_bw() +
-  labs(title="genimix",
+  labs(#title="genimix",
        x="Type", y="genimix (CAG/d)",
        fill="Type", colour="Type") +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size=15), 
@@ -63,7 +79,12 @@ diictrl.bar
 
 #print (summary(lm(ii ~ time + treat + group, data=data)))
 ggplot(data, aes(x=time, y=ii, colour=treat, shape=treat)) +
-  geom_point() +
+    geom_point() +
+    geom_errorbar(aes(ymin=ii-ii_std, ymax=ii+ii_std), width=.2,
+                  position=position_dodge(0.05)) +
+      labs(
+       x="time", y="iictrl") +
+
     geom_smooth(method='lm')
 
 model <- lme(ii ~ time * treat, random = ~1 | id, na.action="na.omit", data=data)
@@ -78,27 +99,25 @@ contrasts <- contrasts %>% separate(c("grouped"), c("group1", "group2"), sep = "
 contrasts$p.value <- formatC(contrasts$p.value, format="e", digits=2)
 slopes <- data.frame(pwc$emtrends) 
 ### bar plot
-slopes$treat <- factor(slopes$treat, levels = c("0", "1"))
+                                        #slopes$treat <- factor(slopes$treat, levels = c("0", "1"))
+slopes$treat <- factor(slopes$treat, levels = c("pbs", "htt_aso", "scr_aso"))
 
 diictrl.bar <- 
 ggplot(slopes, aes(x=treat, y=time.trend)) +
   geom_bar(aes(fill=treat), stat="identity", color="black", position=position_dodge()) +
-  # geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=.2, position=position_dodge(.9)) +
   geom_errorbar(aes(ymin=time.trend-SE, ymax=time.trend+SE), width=.2, position=position_dodge(.9)) +
-  # stat_pvalue_manual(contrasts, label = "p.signif") +
-  # stat_pvalue_manual(contrasts, label = "p.signif", y.position = 0.08, step.increase = 0.1) +
-  stat_pvalue_manual(contrasts, label = "{p.signif} \n p = {p.value}", y.position = 0.002, step.increase = 0.1, vjust=-0.1) +
-  scale_y_continuous(limits = c(NA, 0.004)) +
-    scale_x_discrete(labels = c("PBS", expression(paste(italic("HTT"), " ASO")))) +
-    scale_fill_discrete(labels=c("PBS", expression(paste(italic("HTT"), " ASO")))) +
+  stat_pvalue_manual(contrasts, label = "{p.signif} \n p = {p.value}", y.position = 0.005, step.increase = 0.1, vjust=-0.1) +
+                                        #  scale_y_continuous(limits = c(NA, 0.006)) +
+    scale_x_discrete(labels = c("PBS", expression(paste(italic("HTT"), " ASO")), expression(paste(italic("SCR"), " ASO")))) +
+    scale_fill_discrete(labels=c("PBS", expression(paste(italic("HTT"), " ASO")), expression(paste(italic("SCR"), " ASO")))) +
 #    scale_x_discrete(labels = c("FAN1-/-", "WT")) +
 #    scale_fill_discrete(labels=c("FAN1-/-", "WT")) +
 
   # scale_colour_discrete(labels=c("PBS", "HTT ASO")) +
   geom_hline(yintercept = 0) +
   theme_bw() +
-  labs(title="ii",
-       x="Type", y="ii (CAG/d)",
+  labs(#title="iictrl",
+       x="Type", y="iictrl (CAG/d)",
        fill="Type", colour="Type") +
   theme(plot.title = element_text(hjust = 0.5, face = "bold", size=15), 
         plot.subtitle = element_text(hjust = 0.5),
